@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-papel font-sans text-tinta antialiased;
+  }
+}
+
+@layer components {
+  /* Números de condicional: monoespaçados e com dígitos alinhados */
+  .numero {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+
+  /* Efeito de grifa-texto amarelo */
+  .grifo {
+    background-image: linear-gradient(
+      100deg,
+      rgba(255, 229, 77, 0) 0.5%,
+      rgba(255, 229, 77, 0.95) 3%,
+      rgba(255, 222, 40, 0.8) 8%,
+      rgba(255, 229, 77, 0.7) 92%,
+      rgba(255, 229, 77, 0) 97%
+    );
+    border-radius: 3px;
+    padding: 0.05em 0.4em;
+    margin: 0 -0.4em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .cartao {
+    @apply rounded-lg border border-zinc-200 bg-white shadow-sm;
+  }
+
+  .campo {
+    @apply block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-tinta shadow-sm
+      placeholder:text-zinc-400 focus:border-marinho focus:outline-none focus:ring-2 focus:ring-marinho/20;
+  }
+
+  .rotulo {
+    @apply mb-1 block text-sm font-medium text-zinc-700;
+  }
+}
+
+@keyframes entrar-linha {
+  from {
+    background-color: rgb(209 250 229);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.linha-nova {
+  animation: entrar-linha 1.6s ease-out;
+}
+
+@keyframes tremer {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+.tremer {
+  animation: tremer 0.4s;
+}
