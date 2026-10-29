@@ -1,10 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LogOut, Search } from "lucide-react";
-import { sair } from "../lib/api";
+import { KeyRound, LogOut, Search } from "lucide-react";
+import { alterarMinhaSenha, sair } from "../lib/api";
 import { usePerfil } from "../lib/auth";
 import { ROTULO_PAPEL } from "../lib/formatos";
 import { useAvisos } from "./Avisos";
+import { useDialogo } from "./Dialogo";
 
 export function Marca({ claro = false }: { claro?: boolean }) {
   return (
@@ -54,8 +55,40 @@ function ItemMenu({ para, children }: { para: string; children: ReactNode }) {
 export function Layout({ children }: { children: ReactNode }) {
   const perfil = usePerfil();
   const navegar = useNavigate();
-  const { limpar } = useAvisos();
+  const { limpar, avisar } = useAvisos();
+  const { pedir } = useDialogo();
   const [busca, setBusca] = useState("");
+
+  async function trocarSenha() {
+    const r = await pedir({
+      titulo: "Alterar minha senha",
+      descricao: (
+        <>
+          Usuário: <b className="numero">{perfil.usuario}</b>
+        </>
+      ),
+      campos: [
+        { nome: "atual", rotulo: "Senha atual", tipo: "senha", obrigatorio: true, autoComplete: "current-password" },
+        {
+          nome: "nova",
+          rotulo: "Nova senha",
+          tipo: "senha",
+          obrigatorio: true,
+          minimo: 6,
+          ajuda: "Pelo menos 6 caracteres.",
+        },
+        { nome: "repetir", rotulo: "Repita a nova senha", tipo: "senha", obrigatorio: true, igualAoCampo: "nova" },
+      ],
+      confirmar: "Alterar senha",
+    });
+    if (!r) return;
+    try {
+      await alterarMinhaSenha(perfil.usuario, r.atual, r.nova);
+      avisar("Senha alterada. Use a nova senha no próximo acesso.", "sucesso");
+    } catch (e) {
+      avisar((e as Error).message, "erro");
+    }
+  }
 
   function buscar(e: FormEvent) {
     e.preventDefault();
@@ -90,10 +123,18 @@ export function Layout({ children }: { children: ReactNode }) {
                 className="numero h-9 w-44 rounded-md border border-white/15 bg-white/10 pl-8 pr-2 text-sm text-white placeholder:font-sans placeholder:tracking-normal placeholder:text-white/50 focus:border-white/40 focus:outline-none"
               />
             </form>
-            <div className="text-right leading-tight">
-              <p className="text-sm font-medium">{perfil.nome}</p>
-              <p className="text-xs text-white/60">{ROTULO_PAPEL[perfil.papel]}</p>
-            </div>
+            <button
+              type="button"
+              onClick={() => void trocarSenha()}
+              title="Alterar minha senha"
+              className="group flex items-center gap-2 rounded-md px-2 py-1 text-right leading-tight hover:bg-white/10"
+            >
+              <span>
+                <span className="block text-sm font-medium">{perfil.nome}</span>
+                <span className="block text-xs text-white/60">{ROTULO_PAPEL[perfil.papel]}</span>
+              </span>
+              <KeyRound className="h-4 w-4 text-white/40 group-hover:text-white" />
+            </button>
             <button
               type="button"
               onClick={() => {

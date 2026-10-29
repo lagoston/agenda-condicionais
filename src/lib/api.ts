@@ -41,6 +41,28 @@ export async function entrar(usuario: string, senha: string): Promise<void> {
   if (error) throw new Error(traduzirErro(error.message));
 }
 
+/** Troca a própria senha: confere a senha atual antes de trocar */
+export async function alterarMinhaSenha(usuario: string, senhaAtual: string, novaSenha: string): Promise<void> {
+  const email = `${usuario.trim().toLowerCase()}@${DOMINIO_LOGIN}`;
+  const { error: erroAtual } = await supabase.auth.signInWithPassword({ email, password: senhaAtual });
+  if (erroAtual) {
+    throw new Error(
+      /Invalid login credentials/i.test(erroAtual.message)
+        ? "A senha atual está incorreta."
+        : traduzirErro(erroAtual.message),
+    );
+  }
+  const { error } = await supabase.auth.updateUser({ password: novaSenha });
+  if (error) {
+    if (/different from the old/i.test(error.message)) throw new Error("A nova senha precisa ser diferente da atual.");
+    if (/at least|too short/i.test(error.message)) throw new Error("A nova senha precisa ter pelo menos 6 caracteres.");
+    if (/weak|pwned|leaked/i.test(error.message)) throw new Error("Senha fraca demais. Escolha outra.");
+    throw new Error(traduzirErro(error.message));
+  }
+  // Registro no histórico (se falhar, a senha já foi trocada mesmo assim)
+  await supabase.rpc("registrar_troca_de_senha");
+}
+
 export async function sair(): Promise<void> {
   await supabase.auth.signOut();
 }

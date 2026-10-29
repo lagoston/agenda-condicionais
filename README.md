@@ -38,6 +38,8 @@ Cada dia pode ter uma lista de cada modalidade, guardadas separadamente. Um mesm
 - *Folha para conferência manual*: caixas em branco + linhas de conferente, assinatura e data/hora;
 - *Cópia da conferência registrada*: ✓ conferida, NR não recebida, Paga/Canc., e quem assinou no sistema.
 
+**Alterar minha senha** (qualquer usuário): clicar no próprio nome no topo da tela. Pede a senha atual, a nova (mínimo 6 caracteres) e a repetição. Fica registrado no histórico. Senha esquecida continua sendo redefinida pelo administrador em Usuários.
+
 **Resetar lista (dados de teste)** — só administrador, no rodapé da lista: apaga a lista daquele dia e modalidade (condicionais, marcações e histórico dela), como se nunca tivesse existido. Pede motivo e a palavra RESETAR. Fica apenas um registro de auditoria (`historico.acao = 'resetou_lista'`) com quem, quando, motivo e os números apagados. Não dá para desfazer.
 
 ## Regras
@@ -60,6 +62,7 @@ Cada dia pode ter uma lista de cada modalidade, guardadas separadamente. Um mesm
 supabase/migrations/001_estrutura.sql   banco: tabelas, regras, histórico, permissões
 supabase/migrations/002_modalidades.sql Entregas / Balcão e novas permissões
 supabase/migrations/003_reset_lista.sql reset de lista de teste (só administrador)
+supabase/migrations/004_troca_de_senha.sql registro da troca da própria senha
 supabase/functions/usuarios/index.ts    função de servidor: criar usuário / redefinir senha
 src/lib/api.ts                          todas as chamadas ao Supabase
 src/lib/permissoes.ts                   o que cada papel vê na tela (o banco é quem decide)

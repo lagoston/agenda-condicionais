@@ -25,6 +25,10 @@ export interface CampoDialogo {
   opcoes?: { valor: string; rotulo: string }[];
   /** Exige que a pessoa digite exatamente este texto (ex.: "RESETAR") */
   igualA?: string;
+  /** Precisa ser igual ao valor de outro campo (ex.: repetir a senha) */
+  igualAoCampo?: string;
+  /** Dica de preenchimento automático do navegador (ex.: "current-password") */
+  autoComplete?: string;
 }
 
 export interface OpcoesDialogo {
@@ -74,12 +78,13 @@ export function DialogoProvider({ children }: { children: ReactNode }) {
   );
 }
 
-function validar(campo: CampoDialogo, valor: string): string | null {
+function validar(campo: CampoDialogo, valor: string, valores: Record<string, string>): string | null {
   const v = valor.trim();
   if (campo.obrigatorio && !v) return "Preencha este campo.";
   if (campo.tipo === "numero6" && v && !/^\d{6}$/.test(v)) return "Use exatamente 6 dígitos.";
   if (campo.minimo && v && v.length < campo.minimo) return `Escreva pelo menos ${campo.minimo} caracteres.`;
   if (campo.igualA && v.toUpperCase() !== campo.igualA) return `Digite ${campo.igualA} para confirmar.`;
+  if (campo.igualAoCampo && valor !== (valores[campo.igualAoCampo] ?? "")) return "Os valores não conferem.";
   return null;
 }
 
@@ -114,7 +119,7 @@ function JanelaDialogo({ opcoes, aoResponder }: { opcoes: OpcoesDialogo; aoRespo
     const novosErros: Record<string, string | null> = {};
     let ok = true;
     for (const c of campos) {
-      const erro = validar(c, valores[c.nome] ?? "");
+      const erro = validar(c, valores[c.nome] ?? "", valores);
       novosErros[c.nome] = erro;
       if (erro) ok = false;
     }
@@ -188,7 +193,7 @@ function JanelaDialogo({ opcoes, aoResponder }: { opcoes: OpcoesDialogo; aoRespo
                     type={c.tipo === "senha" ? "password" : "text"}
                     inputMode={c.tipo === "numero6" ? "numeric" : undefined}
                     maxLength={c.tipo === "numero6" ? 6 : undefined}
-                    autoComplete={c.tipo === "senha" ? "new-password" : "off"}
+                    autoComplete={c.autoComplete ?? (c.tipo === "senha" ? "new-password" : "off")}
                     className={`campo ${c.tipo === "numero6" ? "numero text-lg" : ""}`}
                     onChange={(e) =>
                       alterar(c.nome, c.tipo === "numero6" ? e.target.value.replace(/\D/g, "") : e.target.value)

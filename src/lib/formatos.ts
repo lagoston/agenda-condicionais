@@ -142,6 +142,8 @@ export function descreverEvento(ev: EventoHistorico): string {
       return "alterou o usuário";
     case "resetou_lista":
       return "resetou (apagou) uma lista de teste";
+    case "alterou_propria_senha":
+      return "alterou a própria senha";
     case "redefiniu_senha":
       return "redefiniu a senha";
     default:
