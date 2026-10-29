@@ -6,6 +6,7 @@ import type {
   CondicionalBase,
   EventoHistorico,
   ListaResumo,
+  Modalidade,
   Papel,
   Perfil,
   ResultadoLancamento,
@@ -94,11 +95,14 @@ export async function listarListas(limite = 120): Promise<ListaResumo[]> {
   );
 }
 
-export async function buscarListaPorData(data: string): Promise<ListaResumo | null> {
-  return verificar<ListaResumo | null>(await supabase.from("listas_resumo").select("*").eq("data", data).maybeSingle());
+export async function buscarListaPorData(data: string, modalidade: Modalidade): Promise<ListaResumo | null> {
+  return verificar<ListaResumo | null>(
+    await supabase.from("listas_resumo").select("*").eq("data", data).eq("modalidade", modalidade).maybeSingle(),
+  );
 }
 
-export const abrirLista = (data: string) => rpc<ListaResumo>("abrir_lista", { p_data: data });
+export const abrirLista = (data: string, modalidade: Modalidade) =>
+  rpc<ListaResumo>("abrir_lista", { p_data: data, p_modalidade: modalidade });
 
 export const enviarLista = (listaId: string) => rpc<unknown>("enviar_lista", { p_lista_id: listaId });
 
@@ -156,7 +160,8 @@ export async function listarEmAberto(): Promise<Condicional[]> {
         .select("*")
         .eq("situacao", "em_aberto")
         .eq("removida", false)
-        .neq("lista_status", "rascunho")
+        // Entregas só depois de enviadas; Balcão desde o lançamento (já sai conferido)
+        .or("lista_status.neq.rascunho,lista_modalidade.eq.balcao")
         .order("lista_data", { ascending: true })
         .order("posicao", { ascending: true })
         .range(inicio, inicio + pagina - 1),

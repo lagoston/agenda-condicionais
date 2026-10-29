@@ -2,9 +2,17 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Search, ShieldCheck, ShieldAlert } from "lucide-react";
 import { LinhaDoTempo } from "../components/Historico";
-import { Botao, Carregando, MensagemErro, SeloConferencia, SeloSituacao, Vazio } from "../components/ui";
+import {
+  Botao,
+  Carregando,
+  MensagemErro,
+  SeloConferencia,
+  SeloModalidade,
+  SeloSituacao,
+  Vazio,
+} from "../components/ui";
 import { buscarCondicionais, historicoDeRegistros } from "../lib/api";
-import { formatarData, formatarDataHora } from "../lib/formatos";
+import { caminhoLista, formatarData, formatarDataHora } from "../lib/formatos";
 import type { Condicional, EventoHistorico } from "../lib/tipos";
 
 /** Responde à pergunta "quem viu essa condicional por último?" */
@@ -23,7 +31,9 @@ function ResumoCustodia({ c }: { c: Condicional }) {
   } else if (c.conferencia === "conferida") {
     texto = (
       <>
-        Último a ver: <b>{c.conferida_por_nome}</b>, que conferiu (grifou) em {formatarDataHora(c.conferida_em)}.
+        Último a ver: <b>{c.conferida_por_nome}</b>,{" "}
+        {c.lista_modalidade === "balcao" ? "que lançou e conferiu no balcão" : "que conferiu (grifou)"} em{" "}
+        {formatarDataHora(c.conferida_em)}.
       </>
     );
   } else if (c.conferencia === "nao_recebida") {
@@ -74,7 +84,11 @@ function CartaoCondicional({ c, eventos }: { c: Condicional; eventos: EventoHist
           >
             {c.numero}
           </p>
-          <Link to={`/lista/${c.lista_data}`} className="text-sm text-marinho underline-offset-2 hover:underline">
+          <Link
+            to={caminhoLista(c.lista_modalidade, c.lista_data)}
+            className="inline-flex items-center gap-2 text-sm text-marinho underline-offset-2 hover:underline"
+          >
+            <SeloModalidade modalidade={c.lista_modalidade} />
             Lista de {formatarData(c.lista_data)}
           </Link>
         </div>

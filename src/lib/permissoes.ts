@@ -1,28 +1,51 @@
 // Espelho das regras do banco, só para mostrar/esconder botões.
 // Quem decide de verdade é o banco (as funções recusam o que não pode).
-import type { Papel, StatusLista } from "./tipos";
+//
+//  Entregas: expedição lança e envia → financeiro confere com a barra de espaço e assina.
+//  Balcão:   financeiro lança e cada número já entra conferido → no fim, fecha e assina.
+//  Paga / Cancelada: qualquer usuário (expedição, financeiro, admin), sempre registrado.
+import type { Modalidade, Papel, StatusLista } from "./tipos";
 
-export const podeAbrirLista = (papel: Papel) => papel === "expedicao" || papel === "admin";
+interface ListaInfo {
+  modalidade: Modalidade;
+  status: StatusLista;
+}
 
-export const podeEnviar = (papel: Papel, status: StatusLista) =>
-  status === "rascunho" && (papel === "expedicao" || papel === "admin");
+const financeiroOuAdmin = (papel: Papel) => papel === "financeiro" || papel === "admin";
 
-export const podeConferir = (papel: Papel, status: StatusLista) =>
-  status === "enviada" && (papel === "financeiro" || papel === "admin");
+/** Entregas: expedição · Balcão: financeiro · Admin: as duas */
+export function podeAbrirLista(papel: Papel, modalidade: Modalidade): boolean {
+  if (papel === "admin") return true;
+  return modalidade === "entrega" ? papel === "expedicao" : papel === "financeiro";
+}
 
-export const podeAlterarSituacao = (papel: Papel, status: StatusLista) =>
-  status !== "rascunho" && (papel === "financeiro" || papel === "admin");
+export const modalidadesQuePodeAbrir = (papel: Papel): Modalidade[] =>
+  (["entrega", "balcao"] as Modalidade[]).filter((m) => podeAbrirLista(papel, m));
 
-export const podeReabrir = (papel: Papel, status: StatusLista) =>
-  status === "conferida" && (papel === "financeiro" || papel === "admin");
+export const podeEnviar = (papel: Papel, l: ListaInfo) =>
+  l.modalidade === "entrega" && l.status === "rascunho" && (papel === "expedicao" || papel === "admin");
 
-export function podeEditarItens(papel: Papel, status: StatusLista, conferenciaIniciada: boolean): boolean {
-  if (status === "rascunho") return papel !== "financeiro";
-  if (status === "enviada") return papel !== "expedicao" || !conferenciaIniciada;
+/** Conferência com a barra de espaço: só Entregas enviadas */
+export const podeConferir = (papel: Papel, l: ListaInfo) =>
+  l.modalidade === "entrega" && l.status === "enviada" && financeiroOuAdmin(papel);
+
+/** Assinar a conferência (Entregas enviadas) ou fechar o Balcão */
+export const podeAssinar = (papel: Papel, l: ListaInfo) =>
+  financeiroOuAdmin(papel) && (l.modalidade === "entrega" ? l.status === "enviada" : l.status === "rascunho");
+
+/** Paga / Cancelada: todos os papéis; nas Entregas, depois que a lista foi enviada */
+export const podeAlterarSituacao = (l: ListaInfo) => l.modalidade === "balcao" || l.status !== "rascunho";
+
+export const podeReabrir = (papel: Papel, l: ListaInfo) => l.status === "conferida" && financeiroOuAdmin(papel);
+
+export function podeEditarItens(papel: Papel, l: ListaInfo, conferenciaIniciada: boolean): boolean {
+  if (l.modalidade === "balcao") return papel !== "expedicao" && l.status === "rascunho";
+  if (l.status === "rascunho") return papel !== "financeiro";
+  if (l.status === "enviada") return papel !== "expedicao" || !conferenciaIniciada;
   return false;
 }
 
-/** Depois que a lista é enviada, toda alteração exige motivo */
-export const exigeMotivo = (status: StatusLista) => status !== "rascunho";
+/** Nas Entregas, depois do envio, toda alteração exige motivo */
+export const exigeMotivo = (l: ListaInfo) => l.modalidade === "entrega" && l.status !== "rascunho";
 
-export const ehFinanceiro = (papel: Papel) => papel === "financeiro" || papel === "admin";
+export const ehFinanceiro = financeiroOuAdmin;

@@ -4,7 +4,6 @@ import { LogOut, Search } from "lucide-react";
 import { sair } from "../lib/api";
 import { usePerfil } from "../lib/auth";
 import { ROTULO_PAPEL } from "../lib/formatos";
-import { ehFinanceiro } from "../lib/permissoes";
 import { useAvisos } from "./Avisos";
 
 export function Marca({ claro = false }: { claro?: boolean }) {
@@ -75,7 +74,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <Marca claro />
           <nav className="flex flex-wrap items-center gap-1">
             <ItemMenu para="/">Listas</ItemMenu>
-            {ehFinanceiro(perfil.papel) && <ItemMenu para="/em-aberto">Em aberto</ItemMenu>}
+            <ItemMenu para="/em-aberto">Em aberto</ItemMenu>
             <ItemMenu para="/buscar">Buscar</ItemMenu>
             {perfil.papel === "admin" && <ItemMenu para="/usuarios">Usuários</ItemMenu>}
           </nav>

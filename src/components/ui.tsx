@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
-import { Loader2 } from "lucide-react";
-import { ROTULO_CONFERENCIA, ROTULO_SITUACAO, ROTULO_STATUS_LISTA } from "../lib/formatos";
-import type { Situacao, StatusConferencia, StatusLista } from "../lib/tipos";
+import { Loader2, Store, Truck } from "lucide-react";
+import { ROTULO_CONFERENCIA, ROTULO_MODALIDADE, ROTULO_SITUACAO, rotuloStatusLista } from "../lib/formatos";
+import type { Modalidade, Situacao, StatusConferencia, StatusLista } from "../lib/tipos";
 
 type Variante = "primario" | "secundario" | "perigo" | "fantasma" | "sucesso";
 type Tamanho = "sm" | "md" | "lg";
@@ -83,9 +83,26 @@ const COR_CONFERENCIA: Record<StatusConferencia, Cor> = {
 };
 const COR_SITUACAO: Record<Situacao, Cor> = { em_aberto: "azul", paga: "verde", cancelada: "cinza" };
 
-export const SeloStatusLista = ({ status }: { status: StatusLista }) => (
-  <Selo cor={COR_STATUS_LISTA[status]}>{ROTULO_STATUS_LISTA[status]}</Selo>
+export const SeloStatusLista = ({ status, modalidade }: { status: StatusLista; modalidade: Modalidade }) => (
+  <Selo cor={modalidade === "balcao" && status === "rascunho" ? "azul" : COR_STATUS_LISTA[status]}>
+    {rotuloStatusLista(status, modalidade)}
+  </Selo>
 );
+
+/** Etiqueta da modalidade: Entregas (caminhão) ou Balcão (loja) */
+export function SeloModalidade({ modalidade, grande = false }: { modalidade: Modalidade; grande?: boolean }) {
+  const Icone = modalidade === "entrega" ? Truck : Store;
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md font-semibold ${
+        modalidade === "entrega" ? "bg-marinho text-white" : "bg-vermelho text-white"
+      } ${grande ? "px-2.5 py-1 text-sm" : "px-2 py-0.5 text-xs"}`}
+    >
+      <Icone className={grande ? "h-4 w-4" : "h-3.5 w-3.5"} />
+      {ROTULO_MODALIDADE[modalidade]}
+    </span>
+  );
+}
 export const SeloConferencia = ({ status }: { status: StatusConferencia }) => (
   <Selo cor={COR_CONFERENCIA[status]}>{ROTULO_CONFERENCIA[status]}</Selo>
 );

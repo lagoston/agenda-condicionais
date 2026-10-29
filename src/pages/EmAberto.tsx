@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import { History } from "lucide-react";
 import { BotoesSituacao } from "../components/BotoesSituacao";
 import { PainelHistorico, type PedidoHistorico } from "../components/Historico";
-import { Carregando, MensagemErro, SeloConferencia, Vazio } from "../components/ui";
+import { Carregando, MensagemErro, SeloConferencia, SeloModalidade, Vazio } from "../components/ui";
 import { historicoDeRegistros, listarEmAberto } from "../lib/api";
-import { diasEntre, formatarData, hojeISO } from "../lib/formatos";
+import { caminhoLista, diasEntre, formatarData, hojeISO } from "../lib/formatos";
 import type { Condicional, Situacao } from "../lib/tipos";
 import { useSituacao } from "../lib/useSituacao";
 
@@ -107,7 +107,11 @@ export default function EmAberto() {
                       </span>
                     </td>
                     <td className="py-2.5 pr-4 text-sm">
-                      <Link to={`/lista/${c.lista_data}`} className="text-marinho underline-offset-2 hover:underline">
+                      <Link
+                        to={caminhoLista(c.lista_modalidade, c.lista_data)}
+                        className="inline-flex items-center gap-2 text-marinho underline-offset-2 hover:underline"
+                      >
+                        <SeloModalidade modalidade={c.lista_modalidade} />
                         {formatarData(c.lista_data)}
                       </Link>
                     </td>

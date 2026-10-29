@@ -17,7 +17,7 @@ import { useDialogo } from "../components/Dialogo";
 import { EntradaNumeros } from "../components/EntradaNumeros";
 import { PainelHistorico, type PedidoHistorico } from "../components/Historico";
 import { TabelaCondicionais, TabelaRemovidas, type Temporario } from "../components/TabelaCondicionais";
-import { Botao, Carregando, MensagemErro, SeloStatusLista, Vazio } from "../components/ui";
+import { Botao, Carregando, MensagemErro, SeloModalidade, SeloStatusLista, Vazio } from "../components/ui";
 import {
   abrirLista,
   adicionarCondicionais,
@@ -33,17 +33,26 @@ import {
   removerCondicional,
 } from "../lib/api";
 import { usePerfil } from "../lib/auth";
-import { diaDaSemana, formatarData, formatarDataHora, hojeISO, somarDias } from "../lib/formatos";
+import {
+  caminhoLista,
+  diaDaSemana,
+  formatarData,
+  formatarDataHora,
+  hojeISO,
+  ROTULO_MODALIDADE,
+  somarDias,
+} from "../lib/formatos";
 import {
   exigeMotivo,
   podeAbrirLista,
   podeAlterarSituacao,
+  podeAssinar,
   podeConferir,
   podeEditarItens,
   podeEnviar,
   podeReabrir,
 } from "../lib/permissoes";
-import type { Condicional, ListaResumo, ResultadoLancamento, Situacao } from "../lib/tipos";
+import type { Condicional, ListaResumo, Modalidade, ResultadoLancamento, Situacao } from "../lib/tipos";
 import { useAoFocar } from "../lib/useAoFocar";
 import { useSituacao } from "../lib/useSituacao";
 
@@ -66,13 +75,16 @@ function Tecla({ children }: { children: string }) {
 }
 
 export default function Lista() {
-  const { data = "" } = useParams();
+  const { modalidade: modalidadeUrl = "", data = "" } = useParams();
+  const modalidade: Modalidade = modalidadeUrl === "balcao" ? "balcao" : "entrega";
+  const outraModalidade: Modalidade = modalidade === "balcao" ? "entrega" : "balcao";
+  const ehBalcao = modalidade === "balcao";
   const perfil = usePerfil();
   const { avisar } = useAvisos();
   const { pedir, aberto: dialogoAberto } = useDialogo();
   const alterarSituacao = useSituacao();
   const hoje = hojeISO();
-  const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(data);
+  const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(data) && (modalidadeUrl === "entrega" || modalidadeUrl === "balcao");
 
   const [lista, setLista] = useState<ListaResumo | null | undefined>(undefined);
   const [itens, setItens] = useState<Condicional[]>([]);
@@ -118,7 +130,7 @@ export default function Lista() {
       if (!dataValida) return;
       const marca = mutacoesRef.current;
       try {
-        const l = await buscarListaPorData(data);
+        const l = await buscarListaPorData(data, modalidade);
         const novos = l ? await listarCondicionais(l.id) : [];
         // Se o usuário mexeu em algo enquanto carregava, não sobrescreve a tela
         if (silencioso && marca !== mutacoesRef.current) return;
@@ -129,7 +141,7 @@ export default function Lista() {
         if (!silencioso) setErro((e as Error).message);
       }
     },
-    [data, dataValida],
+    [data, modalidade, dataValida],
   );
 
   useEffect(() => {
@@ -149,10 +161,10 @@ export default function Lista() {
   const existentes = useMemo(() => new Map(ativos.map((c, i) => [c.numero, i + 1])), [ativos]);
 
   const conferenciaIniciada = ativos.some((c) => c.conferencia !== "pendente");
-  const modoConferencia = !!lista && podeConferir(perfil.papel, lista.status);
-  const editavel = !!lista && podeEditarItens(perfil.papel, lista.status, conferenciaIniciada);
-  const situacaoEditavel = !!lista && podeAlterarSituacao(perfil.papel, lista.status);
-  const motivoObrigatorio = !!lista && exigeMotivo(lista.status);
+  const modoConferencia = !!lista && podeConferir(perfil.papel, lista);
+  const editavel = !!lista && podeEditarItens(perfil.papel, lista, conferenciaIniciada);
+  const situacaoEditavel = !!lista && podeAlterarSituacao(lista);
+  const motivoObrigatorio = !!lista && exigeMotivo(lista);
   const cursorSeguro = Math.min(cursor, Math.max(ativos.length - 1, 0));
 
   const contagem = useMemo(
@@ -324,7 +336,7 @@ export default function Lista() {
   async function abrir() {
     setAbrindo(true);
     try {
-      await abrirLista(data);
+      await abrirLista(data, modalidade);
       await recarregar();
     } catch (e) {
       avisar((e as Error).message, "erro");
@@ -384,7 +396,7 @@ export default function Lista() {
     const r = await pedir({
       titulo: `Corrigir o número ${c.numero}`,
       descricao:
-        c.conferencia === "conferida"
+        c.conferencia === "conferida" && !ehBalcao
           ? "Atenção: a conferência desta condicional será desmarcada para ser feita de novo."
           : undefined,
       campos: [
@@ -487,36 +499,54 @@ export default function Lista() {
       return;
     }
     const pendentes = ativos.filter((c) => c.conferencia === "pendente");
-    const r = await pedir({
-      titulo: "Assinar conferência",
-      descricao:
-        pendentes.length === 0 ? (
-          <>
-            Todas as <b>{contagem.total}</b> condicionais foram conferidas.
-          </>
-        ) : (
-          <>
-            <b className="text-vermelho-700">{pendentes.length}</b> sem conferência vão ficar registradas como{" "}
-            <b className="text-vermelho-700">NÃO RECEBIDAS</b>:
-            <span className="numero mt-2 block rounded-md bg-vermelho-50 px-3 py-2 text-vermelho-700">
-              {pendentes.map((c) => c.numero).join("  ")}
-            </span>
-          </>
-        ),
-      campos: [
-        pendentes.length > 0
-          ? { nome: "observacao", rotulo: "Observação (obrigatória)", tipo: "textarea", obrigatorio: true, minimo: 3 }
-          : { nome: "observacao", rotulo: "Observação (opcional)", tipo: "textarea" },
-      ],
-      confirmar: `Assinar como ${perfil.nome}`,
-      perigo: pendentes.length > 0,
-    });
+    const r = ehBalcao
+      ? await pedir({
+          titulo: "Fechar e assinar a lista do balcão?",
+          descricao: (
+            <>
+              As <b>{contagem.total}</b> condicionais lançadas já foram conferidas no lançamento. Depois de fechada, a
+              lista só muda se for reaberta (com motivo).
+            </>
+          ),
+          campos: [{ nome: "observacao", rotulo: "Observação (opcional)", tipo: "textarea" }],
+          confirmar: `Fechar e assinar como ${perfil.nome}`,
+        })
+      : await pedir({
+          titulo: "Assinar conferência",
+          descricao:
+            pendentes.length === 0 ? (
+              <>
+                Todas as <b>{contagem.total}</b> condicionais foram conferidas.
+              </>
+            ) : (
+              <>
+                <b className="text-vermelho-700">{pendentes.length}</b> sem conferência vão ficar registradas como{" "}
+                <b className="text-vermelho-700">NÃO RECEBIDAS</b>:
+                <span className="numero mt-2 block rounded-md bg-vermelho-50 px-3 py-2 text-vermelho-700">
+                  {pendentes.map((c) => c.numero).join("  ")}
+                </span>
+              </>
+            ),
+          campos: [
+            pendentes.length > 0
+              ? {
+                  nome: "observacao",
+                  rotulo: "Observação (obrigatória)",
+                  tipo: "textarea",
+                  obrigatorio: true,
+                  minimo: 3,
+                }
+              : { nome: "observacao", rotulo: "Observação (opcional)", tipo: "textarea" },
+          ],
+          confirmar: `Assinar como ${perfil.nome}`,
+          perigo: pendentes.length > 0,
+        });
     if (!r) return;
     setOcupado(true);
     try {
       await assinarConferencia(lista.id, r.observacao || undefined);
       pilhaRef.current = [];
-      avisar("Conferência assinada.", "sucesso");
+      avisar(ehBalcao ? "Lista do balcão fechada e assinada." : "Conferência assinada.", "sucesso");
       await recarregar();
     } catch (e) {
       avisar((e as Error).message, "erro");
@@ -528,9 +558,10 @@ export default function Lista() {
   async function reabrir() {
     if (!lista) return;
     const r = await pedir({
-      titulo: "Reabrir a conferência?",
-      descricao:
-        "A assinatura sai e a lista volta para conferência. As que estavam como “não recebidas” voltam a pendente. Tudo fica no histórico.",
+      titulo: ehBalcao ? "Reabrir a lista do balcão?" : "Reabrir a conferência?",
+      descricao: ehBalcao
+        ? "A assinatura sai e a lista volta para lançamento, podendo ser corrigida. Tudo fica no histórico."
+        : "A assinatura sai e a lista volta para conferência. As que estavam como “não recebidas” voltam a pendente. Tudo fica no histórico.",
       campos: [{ nome: "motivo", rotulo: "Motivo", tipo: "textarea", obrigatorio: true, minimo: 3 }],
       confirmar: "Reabrir",
       perigo: true,
@@ -540,7 +571,7 @@ export default function Lista() {
     try {
       await reabrirConferencia(lista.id, r.motivo);
       cursorIniciadoRef.current = null;
-      avisar("Conferência reaberta.", "sucesso");
+      avisar(ehBalcao ? "Lista do balcão reaberta." : "Conferência reaberta.", "sucesso");
       await recarregar();
     } catch (e) {
       avisar((e as Error).message, "erro");
@@ -555,7 +586,7 @@ export default function Lista() {
   const navegacaoDias = (
     <div className="flex items-center gap-1">
       <Link
-        to={`/lista/${somarDias(data, -1)}`}
+        to={caminhoLista(modalidade, somarDias(data, -1))}
         className="rounded-md p-2 text-zinc-500 hover:bg-white hover:text-marinho"
         title="Dia anterior"
       >
@@ -563,7 +594,7 @@ export default function Lista() {
       </Link>
       {data < hoje ? (
         <Link
-          to={`/lista/${somarDias(data, 1)}`}
+          to={caminhoLista(modalidade, somarDias(data, 1))}
           className="rounded-md p-2 text-zinc-500 hover:bg-white hover:text-marinho"
           title="Próximo dia"
         >
@@ -585,9 +616,18 @@ export default function Lista() {
     <div className="flex items-center gap-2">
       {navegacaoDias}
       <div>
-        <p className="text-sm text-zinc-500">{diaDaSemana(data)}</p>
-        <h1 className="text-2xl font-semibold text-marinho">Lista de {formatarData(data)}</h1>
+        <div className="flex items-center gap-2">
+          <SeloModalidade modalidade={modalidade} />
+          <span className="text-sm text-zinc-500">{diaDaSemana(data)}</span>
+        </div>
+        <h1 className="mt-0.5 text-2xl font-semibold text-marinho">Lista de {formatarData(data)}</h1>
       </div>
+      <Link
+        to={caminhoLista(outraModalidade, data)}
+        className="ml-2 hidden self-end rounded-md px-2 py-1 text-sm text-marinho underline-offset-2 hover:underline sm:inline"
+      >
+        Ver {ROTULO_MODALIDADE[outraModalidade]} deste dia →
+      </Link>
     </div>
   );
 
@@ -595,13 +635,19 @@ export default function Lista() {
     return (
       <div className="space-y-6">
         {titulo}
-        <Vazio titulo={`Nenhuma lista lançada em ${formatarData(data)}.`}>
-          {podeAbrirLista(perfil.papel) && data <= hoje ? (
+        <Vazio titulo={`Nenhuma lista de ${ROTULO_MODALIDADE[modalidade]} lançada em ${formatarData(data)}.`}>
+          {podeAbrirLista(perfil.papel, modalidade) && data <= hoje ? (
             <Botao className="mt-3" onClick={() => void abrir()} carregando={abrindo}>
               <Plus className="h-4 w-4" />
-              Começar a lista deste dia
+              Começar a lista de {ROTULO_MODALIDADE[modalidade]} deste dia
             </Botao>
-          ) : null}
+          ) : (
+            <p>
+              {ehBalcao
+                ? "As listas de balcão são lançadas pelo financeiro."
+                : "As listas de entregas são lançadas pela expedição."}
+            </p>
+          )}
         </Vazio>
       </div>
     );
@@ -619,7 +665,7 @@ export default function Lista() {
         <div className="space-y-2">
           {titulo}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[5.5rem] text-sm text-zinc-500">
-            <SeloStatusLista status={lista.status} />
+            <SeloStatusLista status={lista.status} modalidade={lista.modalidade} />
             <span>
               Lançada por <b className="font-medium text-zinc-700">{lista.criada_por_nome}</b>
             </span>
@@ -636,7 +682,7 @@ export default function Lista() {
             variante="secundario"
             onClick={() =>
               setHistorico({
-                titulo: `Lista de ${formatarData(lista.data)}`,
+                titulo: `${ROTULO_MODALIDADE[lista.modalidade]} · ${formatarData(lista.data)}`,
                 carregar: () => historicoDaLista(lista.id),
               })
             }
@@ -644,7 +690,17 @@ export default function Lista() {
             <History className="h-4 w-4" />
             Histórico da lista
           </Botao>
-          {podeEnviar(perfil.papel, lista.status) && (
+          {ehBalcao && podeAssinar(perfil.papel, lista) && (
+            <Botao
+              onClick={() => void assinar()}
+              carregando={ocupado}
+              disabled={contagem.total === 0 || temporarios.length > 0}
+            >
+              <Signature className="h-4 w-4" />
+              Fechar e assinar lista
+            </Botao>
+          )}
+          {podeEnviar(perfil.papel, lista) && (
             <Botao
               onClick={() => void enviar()}
               carregando={ocupado}
@@ -654,10 +710,10 @@ export default function Lista() {
               Enviar para conferência
             </Botao>
           )}
-          {podeReabrir(perfil.papel, lista.status) && (
+          {podeReabrir(perfil.papel, lista) && (
             <Botao variante="secundario" onClick={() => void reabrir()} carregando={ocupado}>
               <RotateCcw className="h-4 w-4" />
-              Reabrir conferência
+              {ehBalcao ? "Reabrir lista" : "Reabrir conferência"}
             </Botao>
           )}
         </div>
@@ -666,7 +722,7 @@ export default function Lista() {
       {/* Contadores */}
       <div className="flex flex-wrap gap-3">
         <Contador rotulo="Condicionais" valor={contagem.total} />
-        {lista.status !== "rascunho" && (
+        {!ehBalcao && lista.status !== "rascunho" && (
           <Contador
             rotulo="Conferidas"
             valor={contagem.conferidas}
@@ -676,7 +732,7 @@ export default function Lista() {
         {contagem.naoRecebidas > 0 && (
           <Contador rotulo="Não recebidas" valor={contagem.naoRecebidas} destaque="vermelho" />
         )}
-        {lista.status !== "rascunho" && (
+        {(ehBalcao || lista.status !== "rascunho") && (
           <>
             <Contador rotulo="Em aberto" valor={contagem.emAberto} />
             <Contador rotulo="Pagas" valor={contagem.pagas} />
@@ -688,7 +744,16 @@ export default function Lista() {
       {/* Avisos por situação da lista */}
       {lista.status === "rascunho" && !editavel && (
         <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
-          A expedição ainda está preenchendo esta lista. Ela fica disponível para conferência quando for enviada.
+          {ehBalcao
+            ? "O financeiro está lançando esta lista do balcão. Cada condicional lançada já está conferida."
+            : "A expedição ainda está preenchendo esta lista. Ela fica disponível para conferência quando for enviada."}
+        </div>
+      )}
+
+      {ehBalcao && lista.status === "rascunho" && editavel && (
+        <div className="rounded-lg border border-marinho/15 bg-white px-4 py-3 text-sm text-zinc-600">
+          No balcão, cada número que você lança <b>já fica conferido por você</b>. Ao terminar o dia, clique em{" "}
+          <b>Fechar e assinar lista</b>.
         </div>
       )}
 
@@ -704,7 +769,7 @@ export default function Lista() {
         <div className="cartao flex flex-wrap items-center gap-4 border-emerald-200 bg-emerald-50/40 px-5 py-4">
           <Signature className="h-8 w-8 text-emerald-700" />
           <div className="flex-1">
-            <p className="text-sm text-zinc-600">Conferido e assinado por</p>
+            <p className="text-sm text-zinc-600">{ehBalcao ? "Fechada e assinada por" : "Conferido e assinado por"}</p>
             <p className="text-lg font-semibold text-marinho">
               {lista.conferida_por_nome}{" "}
               <span className="font-normal text-zinc-500">· {formatarDataHora(lista.conferida_em)}</span>
@@ -792,7 +857,7 @@ export default function Lista() {
         cursor={cursorSeguro}
         editavel={editavel}
         situacaoEditavel={situacaoEditavel}
-        ocultarStatus={lista.status === "rascunho"}
+        ocultarStatus={!ehBalcao && lista.status === "rascunho"}
         destaque={destaque}
         aoFocarLinha={irPara}
         aoAlternarConferencia={alternarConferencia}

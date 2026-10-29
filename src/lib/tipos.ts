@@ -2,6 +2,7 @@ export type Papel = "expedicao" | "financeiro" | "admin";
 export type StatusLista = "rascunho" | "enviada" | "conferida";
 export type StatusConferencia = "pendente" | "conferida" | "nao_recebida";
 export type Situacao = "em_aberto" | "paga" | "cancelada";
+export type Modalidade = "entrega" | "balcao";
 
 export interface Perfil {
   id: string;
@@ -15,6 +16,7 @@ export interface Perfil {
 export interface ListaResumo {
   id: string;
   data: string; // AAAA-MM-DD
+  modalidade: Modalidade;
   status: StatusLista;
   criada_por: string;
   criada_em: string;
@@ -52,6 +54,7 @@ export interface Condicional {
   criada_por: string;
   criada_em: string;
   lista_data: string;
+  lista_modalidade: Modalidade;
   lista_status: StatusLista;
   criada_por_nome: string | null;
   conferida_por_nome: string | null;
@@ -62,7 +65,13 @@ export interface Condicional {
 /** Linha "crua" devolvida pelas funções do banco (sem nomes nem dados da lista) */
 export type CondicionalBase = Omit<
   Condicional,
-  "lista_data" | "lista_status" | "criada_por_nome" | "conferida_por_nome" | "situacao_por_nome" | "removida_por_nome"
+  | "lista_data"
+  | "lista_modalidade"
+  | "lista_status"
+  | "criada_por_nome"
+  | "conferida_por_nome"
+  | "situacao_por_nome"
+  | "removida_por_nome"
 >;
 
 export interface ResultadoLancamento {

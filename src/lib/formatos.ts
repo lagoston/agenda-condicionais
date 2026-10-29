@@ -1,5 +1,5 @@
 import { FUSO } from "./config";
-import type { EventoHistorico, Papel, Situacao, StatusConferencia, StatusLista } from "./tipos";
+import type { EventoHistorico, Modalidade, Papel, Situacao, StatusConferencia, StatusLista } from "./tipos";
 
 /** Data de hoje no fuso de São Paulo, no formato AAAA-MM-DD */
 export function hojeISO(): string {
@@ -68,6 +68,20 @@ export const ROTULO_STATUS_LISTA: Record<StatusLista, string> = {
   conferida: "Conferida e assinada",
 };
 
+export const ROTULO_MODALIDADE: Record<Modalidade, string> = {
+  entrega: "Entregas",
+  balcao: "Balcão",
+};
+
+/** No Balcão não existe "enviada": é "em lançamento" até ser fechada */
+export function rotuloStatusLista(status: StatusLista, modalidade: Modalidade): string {
+  if (modalidade === "balcao") return status === "conferida" ? "Fechada e assinada" : "Em lançamento";
+  return ROTULO_STATUS_LISTA[status];
+}
+
+/** Endereço da tela de uma lista */
+export const caminhoLista = (modalidade: Modalidade, data: string) => `/lista/${modalidade}/${data}`;
+
 export const ROTULO_CONFERENCIA: Record<StatusConferencia, string> = {
   pendente: "Pendente",
   conferida: "Conferida",
@@ -100,6 +114,8 @@ export function descreverEvento(ev: EventoHistorico): string {
       return "reabriu a conferência";
     case "lancou":
       return `lançou a condicional ${n}`;
+    case "lancou_conferida":
+      return `lançou e conferiu ${n} (balcão)`;
     case "editou_numero": {
       const mudanca = de(ev, "numero");
       return mudanca ? `corrigiu o número ${mudanca[0]} → ${mudanca[1]}` : `corrigiu o número ${n}`;

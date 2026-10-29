@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { Carregando } from "./components/ui";
 import { sistemaConfigurado } from "./lib/api";
 import { useAuth } from "./lib/auth";
-import { ehFinanceiro } from "./lib/permissoes";
 import Buscar from "./pages/Buscar";
 import EmAberto from "./pages/EmAberto";
 import { Login, PrimeiroAcesso, SemAcesso } from "./pages/Entrada";
 import Lista from "./pages/Lista";
 import Listas from "./pages/Listas";
 import Usuarios from "./pages/Usuarios";
+
+/** Endereço antigo (/lista/AAAA-MM-DD) leva para a lista de Entregas */
+function RedirecionarParaEntregas() {
+  const { data = "" } = useParams();
+  return <Navigate to={`/lista/entrega/${data}`} replace />;
+}
 
 export default function App() {
   const { carregando, sessao, perfil } = useAuth();
@@ -48,9 +53,10 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Listas />} />
-        <Route path="/lista/:data" element={<Lista />} />
+        <Route path="/lista/:modalidade/:data" element={<Lista />} />
+        <Route path="/lista/:data" element={<RedirecionarParaEntregas />} />
         <Route path="/buscar" element={<Buscar />} />
-        {ehFinanceiro(perfil.papel) && <Route path="/em-aberto" element={<EmAberto />} />}
+        <Route path="/em-aberto" element={<EmAberto />} />
         {perfil.papel === "admin" && <Route path="/usuarios" element={<Usuarios />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

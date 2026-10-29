@@ -9,8 +9,8 @@ import { formatarDataDoMomento, ROTULO_PAPEL } from "../lib/formatos";
 import type { Papel, Perfil } from "../lib/tipos";
 
 const OPCOES_PAPEL = [
-  { valor: "expedicao", rotulo: "Expedição — lança as listas" },
-  { valor: "financeiro", rotulo: "Financeiro — confere, marca paga/cancelada" },
+  { valor: "expedicao", rotulo: "Expedição — lança Entregas, marca paga/cancelada" },
+  { valor: "financeiro", rotulo: "Financeiro — lança Balcão, confere Entregas, paga/cancela" },
   { valor: "admin", rotulo: "Administrador — tudo + usuários" },
 ];
 
