@@ -40,6 +40,7 @@ import { usePerfil } from "../lib/auth";
 import {
   caminhoLista,
   diaDaSemana,
+  estaEmAberto,
   formatarData,
   formatarDataHora,
   hojeISO,
@@ -177,10 +178,12 @@ export default function Lista() {
       total: ativos.length,
       conferidas: ativos.filter((c) => c.conferencia === "conferida").length,
       pendentes: ativos.filter((c) => c.conferencia === "pendente").length,
+      // Pagas/canceladas que não foram grifadas: já finalizadas, não precisam de conferência
+      dispensadas: ativos.filter((c) => c.conferencia === "pendente" && c.situacao !== "em_aberto").length,
       naoRecebidas: ativos.filter((c) => c.conferencia === "nao_recebida").length,
       pagas: ativos.filter((c) => c.situacao === "paga").length,
       canceladas: ativos.filter((c) => c.situacao === "cancelada").length,
-      emAberto: ativos.filter((c) => c.situacao === "em_aberto").length,
+      emAberto: ativos.filter(estaEmAberto).length,
     }),
     [ativos],
   );
@@ -503,7 +506,8 @@ export default function Lista() {
       avisar("Aguarde terminar de salvar as marcações.", "info");
       return;
     }
-    const pendentes = ativos.filter((c) => c.conferencia === "pendente");
+    // Só vira "não recebida" o que está em aberto (pagas e canceladas já estão finalizadas)
+    const pendentes = ativos.filter((c) => c.conferencia === "pendente" && c.situacao === "em_aberto");
     const r = ehBalcao
       ? await pedir({
           titulo: "Fechar e assinar a lista do balcão?",
@@ -731,9 +735,8 @@ export default function Lista() {
   }
 
   const atual = ativos[cursorSeguro];
-  const progresso = contagem.total
-    ? Math.round(((contagem.conferidas + contagem.naoRecebidas) / contagem.total) * 100)
-    : 0;
+  const aConferir = contagem.total - contagem.dispensadas;
+  const progresso = aConferir ? Math.round(((contagem.conferidas + contagem.naoRecebidas) / aConferir) * 100) : 100;
 
   return (
     <>
@@ -985,7 +988,8 @@ export default function Lista() {
               <div className="min-w-[10rem] flex-1">
                 <div className="flex justify-between text-xs text-zinc-500">
                   <span>
-                    {contagem.conferidas} de {contagem.total} conferidas
+                    {contagem.conferidas} de {aConferir} conferidas
+                    {contagem.dispensadas > 0 && ` · ${contagem.dispensadas} paga(s)/cancelada(s) dispensada(s)`}
                   </span>
                   <span>{progresso}%</span>
                 </div>

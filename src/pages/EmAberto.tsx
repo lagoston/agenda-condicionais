@@ -58,7 +58,7 @@ export default function EmAberto() {
         <div>
           <h1 className="text-2xl font-semibold text-marinho">Condicionais em aberto</h1>
           <p className="text-sm text-zinc-500">
-            <b className="text-zinc-800">{itens.length}</b> sem pagamento nem cancelamento
+            <b className="text-zinc-800">{itens.length}</b> não conferidas, nem pagas, nem canceladas
             {maisAntiga && (
               <>
                 {" "}

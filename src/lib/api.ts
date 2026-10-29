@@ -184,8 +184,8 @@ export async function listarEmAberto(): Promise<Condicional[]> {
       await supabase
         .from("condicionais_detalhe")
         .select("*")
-        .eq("situacao", "em_aberto")
-        .eq("removida", false)
+        // Em aberto = não conferida, não paga, não cancelada (coluna calculada no banco)
+        .eq("em_aberto", true)
         // Entregas só depois de enviadas; Balcão desde o lançamento (já sai conferido)
         .or("lista_status.neq.rascunho,lista_modalidade.eq.balcao")
         .order("lista_data", { ascending: true })

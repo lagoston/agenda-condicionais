@@ -40,7 +40,8 @@ function LinhaLista({ l }: { l: ListaResumo }) {
         )}
         {mostrarSituacao && (
           <span className="text-zinc-500">
-            Pagas: {l.pagas} · Canceladas: {l.canceladas} · Em aberto: {l.em_aberto}
+            Em aberto: <b className={l.em_aberto > 0 ? "font-semibold text-zinc-800" : "font-normal"}>{l.em_aberto}</b>
+            {" · "}Finalizadas: {l.finalizadas}
           </span>
         )}
       </div>

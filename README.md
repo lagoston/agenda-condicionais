@@ -32,6 +32,8 @@ Cada dia pode ter uma lista de cada modalidade, guardadas separadamente. Um mesm
 
 **Paga / Cancelada**: qualquer usuário (expedição, financeiro ou administrador) marca, e fica registrado quem marcou. Desfazer exige motivo.
 
+**Em aberto x Finalizada**: uma condicional está **finalizada** quando foi **conferida (grifada), paga ou cancelada**. Só fica **em aberto** a que não teve nenhuma dessas três (pendente de conferência ou não recebida). A página **Em aberto** e os contadores seguem essa regra. Ao assinar as Entregas, só as em aberto viram "não recebida"; pagas e canceladas ficam como "não precisa" conferir.
+
 **Buscar** mostra o histórico completo de qualquer número e responde "quem viu por último".
 
 **Imprimir** (qualquer usuário, botão no topo da lista): folha A4 só com os números, em dois modelos:
@@ -63,6 +65,8 @@ supabase/migrations/001_estrutura.sql   banco: tabelas, regras, histórico, perm
 supabase/migrations/002_modalidades.sql Entregas / Balcão e novas permissões
 supabase/migrations/003_reset_lista.sql reset de lista de teste (só administrador)
 supabase/migrations/004_troca_de_senha.sql registro da troca da própria senha
+supabase/migrations/005_em_aberto_finalizada.sql regra de em aberto / finalizada nas contagens
+supabase/migrations/006_assinatura_ignora_finalizadas.sql assinatura não marca pagas/canceladas como não recebidas
 supabase/functions/usuarios/index.ts    função de servidor: criar usuário / redefinir senha
 src/lib/api.ts                          todas as chamadas ao Supabase
 src/lib/permissoes.ts                   o que cada papel vê na tela (o banco é quem decide)

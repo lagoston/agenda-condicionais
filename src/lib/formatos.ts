@@ -68,6 +68,29 @@ export const ROTULO_STATUS_LISTA: Record<StatusLista, string> = {
   conferida: "Conferida e assinada",
 };
 
+/**
+ * Situação final da condicional: ela está FINALIZADA quando foi conferida (grifada),
+ * paga ou cancelada. Só fica EM ABERTO a que não teve nenhuma dessas três.
+ */
+export type SituacaoFinal = "paga" | "cancelada" | "conferida" | "em_aberto";
+
+export function situacaoFinal(c: { situacao: Situacao; conferencia: StatusConferencia }): SituacaoFinal {
+  if (c.situacao === "paga") return "paga";
+  if (c.situacao === "cancelada") return "cancelada";
+  if (c.conferencia === "conferida") return "conferida";
+  return "em_aberto";
+}
+
+export const estaEmAberto = (c: { situacao: Situacao; conferencia: StatusConferencia }) =>
+  situacaoFinal(c) === "em_aberto";
+
+export const ROTULO_SITUACAO_FINAL: Record<SituacaoFinal, string> = {
+  paga: "Paga",
+  cancelada: "Cancelada",
+  conferida: "Finalizada",
+  em_aberto: "Em aberto",
+};
+
 export const ROTULO_MODALIDADE: Record<Modalidade, string> = {
   entrega: "Entregas",
   balcao: "Balcão",

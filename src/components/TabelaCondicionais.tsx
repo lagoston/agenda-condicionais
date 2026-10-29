@@ -156,6 +156,10 @@ export function TabelaCondicionais({
                           >
                             {c.conferencia === "conferida" && <Check className="h-4 w-4" strokeWidth={3} />}
                           </button>
+                        ) : c.conferencia === "pendente" && c.situacao !== "em_aberto" ? (
+                          <span className="text-xs text-zinc-400" title="Já está paga/cancelada: não precisa conferir">
+                            — não precisa
+                          </span>
                         ) : (
                           <SeloConferencia status={c.conferencia} />
                         )}
@@ -168,10 +172,11 @@ export function TabelaCondicionais({
                     </td>
                     <td className="py-2.5 pr-4">
                       <div className="flex flex-wrap items-center gap-2">
-                        {situacaoEditavel ? (
+                        {/* Conferida já finaliza: mostra o selo em vez dos botões Paga/Cancelada */}
+                        {situacaoEditavel && !(c.conferencia === "conferida" && c.situacao === "em_aberto") ? (
                           <BotoesSituacao situacao={c.situacao} aoEscolher={(s) => aoSituacao(c, s)} />
                         ) : (
-                          <SeloSituacao situacao={c.situacao} />
+                          <SeloSituacao c={c} />
                         )}
                         {c.situacao !== "em_aberto" && c.situacao_em && (
                           <span className="text-xs text-zinc-500" title={formatarDataHora(c.situacao_em)}>

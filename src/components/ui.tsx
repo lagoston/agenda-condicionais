@@ -1,6 +1,13 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Loader2, Store, Truck } from "lucide-react";
-import { ROTULO_CONFERENCIA, ROTULO_MODALIDADE, ROTULO_SITUACAO, rotuloStatusLista } from "../lib/formatos";
+import {
+  ROTULO_CONFERENCIA,
+  ROTULO_MODALIDADE,
+  ROTULO_SITUACAO_FINAL,
+  rotuloStatusLista,
+  situacaoFinal,
+  type SituacaoFinal,
+} from "../lib/formatos";
 import type { Modalidade, Situacao, StatusConferencia, StatusLista } from "../lib/tipos";
 
 type Variante = "primario" | "secundario" | "perigo" | "fantasma" | "sucesso";
@@ -81,7 +88,12 @@ const COR_CONFERENCIA: Record<StatusConferencia, Cor> = {
   conferida: "amarelo",
   nao_recebida: "vermelho",
 };
-const COR_SITUACAO: Record<Situacao, Cor> = { em_aberto: "azul", paga: "verde", cancelada: "cinza" };
+const COR_SITUACAO_FINAL: Record<SituacaoFinal, Cor> = {
+  em_aberto: "azul",
+  paga: "verde",
+  cancelada: "cinza",
+  conferida: "marinho",
+};
 
 export const SeloStatusLista = ({ status, modalidade }: { status: StatusLista; modalidade: Modalidade }) => (
   <Selo cor={modalidade === "balcao" && status === "rascunho" ? "azul" : COR_STATUS_LISTA[status]}>
@@ -106,9 +118,11 @@ export function SeloModalidade({ modalidade, grande = false }: { modalidade: Mod
 export const SeloConferencia = ({ status }: { status: StatusConferencia }) => (
   <Selo cor={COR_CONFERENCIA[status]}>{ROTULO_CONFERENCIA[status]}</Selo>
 );
-export const SeloSituacao = ({ situacao }: { situacao: Situacao }) => (
-  <Selo cor={COR_SITUACAO[situacao]}>{ROTULO_SITUACAO[situacao]}</Selo>
-);
+/** Em aberto / Finalizada (conferida) / Paga / Cancelada */
+export function SeloSituacao({ c }: { c: { situacao: Situacao; conferencia: StatusConferencia } }) {
+  const s = situacaoFinal(c);
+  return <Selo cor={COR_SITUACAO_FINAL[s]}>{ROTULO_SITUACAO_FINAL[s]}</Selo>;
+}
 
 export function Carregando({ texto = "Carregando…" }: { texto?: string }) {
   return (

@@ -94,7 +94,7 @@ function CartaoCondicional({ c, eventos }: { c: Condicional; eventos: EventoHist
         </div>
         <div className="flex gap-2">
           <SeloConferencia status={c.conferencia} />
-          <SeloSituacao situacao={c.situacao} />
+          <SeloSituacao c={c} />
         </div>
       </div>
       <ResumoCustodia c={c} />

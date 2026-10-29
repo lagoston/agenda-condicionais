@@ -34,6 +34,7 @@ export interface ListaResumo {
   pagas: number;
   canceladas: number;
   em_aberto: number;
+  finalizadas: number;
 }
 
 export interface Condicional {
@@ -60,6 +61,8 @@ export interface Condicional {
   conferida_por_nome: string | null;
   situacao_por_nome: string | null;
   removida_por_nome: string | null;
+  /** Não conferida, não paga e não cancelada */
+  em_aberto: boolean;
 }
 
 /** Linha "crua" devolvida pelas funções do banco (sem nomes nem dados da lista) */
@@ -72,6 +75,7 @@ export type CondicionalBase = Omit<
   | "conferida_por_nome"
   | "situacao_por_nome"
   | "removida_por_nome"
+  | "em_aberto"
 >;
 
 export interface ResultadoLancamento {
