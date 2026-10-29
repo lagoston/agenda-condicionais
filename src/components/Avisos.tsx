@@ -47,7 +47,7 @@ export function AvisosProvider({ children }: { children: ReactNode }) {
   return (
     <Contexto.Provider value={{ avisar, limpar }}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-20 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+      <div className="pointer-events-none fixed right-4 top-20 z-[60] print:hidden flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
         {avisos.map((a) => (
           <div
             key={a.id}

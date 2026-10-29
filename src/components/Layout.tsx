@@ -68,7 +68,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-marinho text-white">
+      <header className="bg-marinho text-white print:hidden">
         <div className="h-1 bg-vermelho" />
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
           <Marca claro />
@@ -110,7 +110,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

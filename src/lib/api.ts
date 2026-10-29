@@ -109,6 +109,10 @@ export const enviarLista = (listaId: string) => rpc<unknown>("enviar_lista", { p
 export const assinarConferencia = (listaId: string, observacao?: string) =>
   rpc<unknown>("assinar_conferencia", { p_lista_id: listaId, p_observacao: observacao ?? null });
 
+/** Somente administrador: apaga a lista de teste inteira (fica só o registro do reset) */
+export const resetarLista = (listaId: string, motivo: string) =>
+  rpc<number>("resetar_lista", { p_lista_id: listaId, p_motivo: motivo });
+
 export const reabrirConferencia = (listaId: string, motivo: string) =>
   rpc<unknown>("reabrir_conferencia", { p_lista_id: listaId, p_motivo: motivo });
 

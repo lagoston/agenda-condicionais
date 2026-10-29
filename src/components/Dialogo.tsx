@@ -23,6 +23,8 @@ export interface CampoDialogo {
   ajuda?: string;
   placeholder?: string;
   opcoes?: { valor: string; rotulo: string }[];
+  /** Exige que a pessoa digite exatamente este texto (ex.: "RESETAR") */
+  igualA?: string;
 }
 
 export interface OpcoesDialogo {
@@ -77,6 +79,7 @@ function validar(campo: CampoDialogo, valor: string): string | null {
   if (campo.obrigatorio && !v) return "Preencha este campo.";
   if (campo.tipo === "numero6" && v && !/^\d{6}$/.test(v)) return "Use exatamente 6 dígitos.";
   if (campo.minimo && v && v.length < campo.minimo) return `Escreva pelo menos ${campo.minimo} caracteres.`;
+  if (campo.igualA && v.toUpperCase() !== campo.igualA) return `Digite ${campo.igualA} para confirmar.`;
   return null;
 }
 

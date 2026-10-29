@@ -34,6 +34,12 @@ Cada dia pode ter uma lista de cada modalidade, guardadas separadamente. Um mesm
 
 **Buscar** mostra o histórico completo de qualquer número e responde "quem viu por último".
 
+**Imprimir** (qualquer usuário, botão no topo da lista): folha A4 só com os números, em dois modelos:
+- *Folha para conferência manual*: caixas em branco + linhas de conferente, assinatura e data/hora;
+- *Cópia da conferência registrada*: ✓ conferida, NR não recebida, Paga/Canc., e quem assinou no sistema.
+
+**Resetar lista (dados de teste)** — só administrador, no rodapé da lista: apaga a lista daquele dia e modalidade (condicionais, marcações e histórico dela), como se nunca tivesse existido. Pede motivo e a palavra RESETAR. Fica apenas um registro de auditoria (`historico.acao = 'resetou_lista'`) com quem, quando, motivo e os números apagados. Não dá para desfazer.
+
 ## Regras
 
 | | Expedição | Financeiro | Admin |
@@ -46,13 +52,14 @@ Cada dia pode ter uma lista de cada modalidade, guardadas separadamente. Um mesm
 | Paga / Cancelada | sim | sim | sim |
 
 - Tudo fica no histórico (quem, quando, o que mudou, motivo), gravado por gatilhos do próprio banco.
-- Nada é apagado: "remover" só tira da lista; usuários são desativados, nunca excluídos.
+- Nada é apagado: "remover" só tira da lista; usuários são desativados, nunca excluídos. A única exceção é o reset de lista de teste, exclusivo do administrador e registrado.
 
 ## Estrutura
 
 ```
 supabase/migrations/001_estrutura.sql   banco: tabelas, regras, histórico, permissões
 supabase/migrations/002_modalidades.sql Entregas / Balcão e novas permissões
+supabase/migrations/003_reset_lista.sql reset de lista de teste (só administrador)
 supabase/functions/usuarios/index.ts    função de servidor: criar usuário / redefinir senha
 src/lib/api.ts                          todas as chamadas ao Supabase
 src/lib/permissoes.ts                   o que cada papel vê na tela (o banco é quem decide)

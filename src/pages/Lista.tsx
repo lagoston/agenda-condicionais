@@ -7,14 +7,17 @@ import {
   History,
   Loader2,
   Plus,
+  Printer,
   RotateCcw,
   Send,
   Signature,
+  Trash2,
   X,
 } from "lucide-react";
 import { useAvisos } from "../components/Avisos";
 import { useDialogo } from "../components/Dialogo";
 import { EntradaNumeros } from "../components/EntradaNumeros";
+import { FolhaImpressao, type ModeloImpressao } from "../components/FolhaImpressao";
 import { PainelHistorico, type PedidoHistorico } from "../components/Historico";
 import { TabelaCondicionais, TabelaRemovidas, type Temporario } from "../components/TabelaCondicionais";
 import { Botao, Carregando, MensagemErro, SeloModalidade, SeloStatusLista, Vazio } from "../components/ui";
@@ -31,6 +34,7 @@ import {
   marcarConferencia,
   reabrirConferencia,
   removerCondicional,
+  resetarLista,
 } from "../lib/api";
 import { usePerfil } from "../lib/auth";
 import {
@@ -99,6 +103,7 @@ export default function Lista() {
   const [cursor, setCursor] = useState(0);
   const [ocupado, setOcupado] = useState(false);
   const [abrindo, setAbrindo] = useState(false);
+  const [modeloImpressao, setModeloImpressao] = useState<ModeloImpressao>("em_branco");
 
   const cursorRef = useRef(0);
   const ativosRef = useRef<Condicional[]>([]);
@@ -580,6 +585,78 @@ export default function Lista() {
     }
   }
 
+  async function imprimir() {
+    if (!lista) return;
+    const r = await pedir({
+      titulo: "Imprimir lista",
+      descricao: "A folha sai em A4, só com os números (sem menus nem botões).",
+      campos: [
+        {
+          nome: "modelo",
+          rotulo: "O que imprimir",
+          tipo: "select",
+          opcoes: [
+            { valor: "em_branco", rotulo: "Folha para conferência manual (caixas em branco)" },
+            { valor: "registrada", rotulo: "Cópia da conferência registrada no sistema" },
+          ],
+          valorInicial: lista.status === "conferida" ? "registrada" : "em_branco",
+        },
+      ],
+      confirmar: "Imprimir",
+    });
+    if (!r) return;
+    setModeloImpressao(r.modelo as ModeloImpressao);
+    // Espera a folha ser montada com o modelo escolhido antes de abrir a impressão
+    window.setTimeout(() => window.print(), 100);
+  }
+
+  async function resetar() {
+    if (!lista) return;
+    const r = await pedir({
+      titulo: `Resetar a lista de ${ROTULO_MODALIDADE[lista.modalidade]} de ${formatarData(lista.data)}?`,
+      descricao: (
+        <>
+          Use só para <b>listas de teste</b>. Apaga de vez as <b>{itens.length}</b> condicionais, as marcações e o
+          histórico desta lista, como se ela nunca tivesse existido. Fica registrado apenas que você resetou.{" "}
+          <b className="text-vermelho-700">Não dá para desfazer.</b>
+        </>
+      ),
+      campos: [
+        {
+          nome: "motivo",
+          rotulo: "Motivo",
+          tipo: "texto",
+          obrigatorio: true,
+          minimo: 3,
+          placeholder: "Ex.: teste do sistema",
+        },
+        {
+          nome: "confirmacao",
+          rotulo: "Digite RESETAR para confirmar",
+          tipo: "texto",
+          obrigatorio: true,
+          igualA: "RESETAR",
+        },
+      ],
+      confirmar: "Resetar lista",
+      perigo: true,
+    });
+    if (!r) return;
+    setOcupado(true);
+    try {
+      mutacoesRef.current++;
+      const apagadas = await resetarLista(lista.id, r.motivo);
+      pilhaRef.current = [];
+      cursorIniciadoRef.current = null;
+      avisar(`Lista resetada: ${apagadas} condicional(is) apagada(s).`, "sucesso");
+      await recarregar();
+    } catch (e) {
+      avisar((e as Error).message, "erro");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
   const fecharHistorico = useCallback(() => setHistorico(null), []);
 
   // ------------------------------------------------------------------ Tela
@@ -659,280 +736,304 @@ export default function Lista() {
     : 0;
 
   return (
-    <div className="space-y-5">
-      {/* Cabeçalho */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-2">
-          {titulo}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[5.5rem] text-sm text-zinc-500">
-            <SeloStatusLista status={lista.status} modalidade={lista.modalidade} />
-            <span>
-              Lançada por <b className="font-medium text-zinc-700">{lista.criada_por_nome}</b>
-            </span>
-            {lista.enviada_em && (
+    <>
+      <div className="space-y-5 print:hidden">
+        {/* Cabeçalho */}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            {titulo}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[5.5rem] text-sm text-zinc-500">
+              <SeloStatusLista status={lista.status} modalidade={lista.modalidade} />
               <span>
-                · enviada por <b className="font-medium text-zinc-700">{lista.enviada_por_nome}</b> em{" "}
-                {formatarDataHora(lista.enviada_em)}
+                Lançada por <b className="font-medium text-zinc-700">{lista.criada_por_nome}</b>
               </span>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Botao
-            variante="secundario"
-            onClick={() =>
-              setHistorico({
-                titulo: `${ROTULO_MODALIDADE[lista.modalidade]} · ${formatarData(lista.data)}`,
-                carregar: () => historicoDaLista(lista.id),
-              })
-            }
-          >
-            <History className="h-4 w-4" />
-            Histórico da lista
-          </Botao>
-          {ehBalcao && podeAssinar(perfil.papel, lista) && (
-            <Botao
-              onClick={() => void assinar()}
-              carregando={ocupado}
-              disabled={contagem.total === 0 || temporarios.length > 0}
-            >
-              <Signature className="h-4 w-4" />
-              Fechar e assinar lista
-            </Botao>
-          )}
-          {podeEnviar(perfil.papel, lista) && (
-            <Botao
-              onClick={() => void enviar()}
-              carregando={ocupado}
-              disabled={contagem.total === 0 || temporarios.length > 0}
-            >
-              <Send className="h-4 w-4" />
-              Enviar para conferência
-            </Botao>
-          )}
-          {podeReabrir(perfil.papel, lista) && (
-            <Botao variante="secundario" onClick={() => void reabrir()} carregando={ocupado}>
-              <RotateCcw className="h-4 w-4" />
-              {ehBalcao ? "Reabrir lista" : "Reabrir conferência"}
-            </Botao>
-          )}
-        </div>
-      </div>
-
-      {/* Contadores */}
-      <div className="flex flex-wrap gap-3">
-        <Contador rotulo="Condicionais" valor={contagem.total} />
-        {!ehBalcao && lista.status !== "rascunho" && (
-          <Contador
-            rotulo="Conferidas"
-            valor={contagem.conferidas}
-            destaque={contagem.conferidas === contagem.total && contagem.total > 0 ? "verde" : undefined}
-          />
-        )}
-        {contagem.naoRecebidas > 0 && (
-          <Contador rotulo="Não recebidas" valor={contagem.naoRecebidas} destaque="vermelho" />
-        )}
-        {(ehBalcao || lista.status !== "rascunho") && (
-          <>
-            <Contador rotulo="Em aberto" valor={contagem.emAberto} />
-            <Contador rotulo="Pagas" valor={contagem.pagas} />
-            <Contador rotulo="Canceladas" valor={contagem.canceladas} />
-          </>
-        )}
-      </div>
-
-      {/* Avisos por situação da lista */}
-      {lista.status === "rascunho" && !editavel && (
-        <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
-          {ehBalcao
-            ? "O financeiro está lançando esta lista do balcão. Cada condicional lançada já está conferida."
-            : "A expedição ainda está preenchendo esta lista. Ela fica disponível para conferência quando for enviada."}
-        </div>
-      )}
-
-      {ehBalcao && lista.status === "rascunho" && editavel && (
-        <div className="rounded-lg border border-marinho/15 bg-white px-4 py-3 text-sm text-zinc-600">
-          No balcão, cada número que você lança <b>já fica conferido por você</b>. Ao terminar o dia, clique em{" "}
-          <b>Fechar e assinar lista</b>.
-        </div>
-      )}
-
-      {lista.status === "enviada" && perfil.papel === "expedicao" && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {editavel
-            ? "Lista enviada. Você ainda pode corrigir (com motivo) até o financeiro começar a conferência."
-            : "A conferência já começou. Para corrigir algo, fale com o financeiro."}
-        </div>
-      )}
-
-      {lista.status === "conferida" && (
-        <div className="cartao flex flex-wrap items-center gap-4 border-emerald-200 bg-emerald-50/40 px-5 py-4">
-          <Signature className="h-8 w-8 text-emerald-700" />
-          <div className="flex-1">
-            <p className="text-sm text-zinc-600">{ehBalcao ? "Fechada e assinada por" : "Conferido e assinado por"}</p>
-            <p className="text-lg font-semibold text-marinho">
-              {lista.conferida_por_nome}{" "}
-              <span className="font-normal text-zinc-500">· {formatarDataHora(lista.conferida_em)}</span>
-            </p>
-            {lista.observacao_conferencia && (
-              <p className="mt-1 text-sm italic text-zinc-600">“{lista.observacao_conferencia}”</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Lançamento */}
-      {editavel && lista.status === "rascunho" && (
-        <div className="sticky top-0 z-20 -mx-4 bg-papel/95 px-4 py-3 backdrop-blur">
-          <EntradaNumeros aoAdicionar={(n) => void lancar(n)} existentes={existentes} />
-        </div>
-      )}
-
-      {editavel && lista.status === "enviada" && (
-        <div>
-          {mostrarEntradaExtra ? (
-            <div className="cartao space-y-2 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-marinho">Lançar condicional que ficou de fora</p>
-                <button
-                  type="button"
-                  onClick={() => setMostrarEntradaExtra(false)}
-                  className="text-zinc-400 hover:text-zinc-700"
-                  aria-label="Fechar"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <EntradaNumeros
-                aoAdicionar={(n) => void lancar(n)}
-                existentes={existentes}
-                dica="A lista já foi enviada: o sistema vai pedir o motivo."
-              />
+              {lista.enviada_em && (
+                <span>
+                  · enviada por <b className="font-medium text-zinc-700">{lista.enviada_por_nome}</b> em{" "}
+                  {formatarDataHora(lista.enviada_em)}
+                </span>
+              )}
             </div>
-          ) : (
-            <Botao variante="fantasma" tamanho="sm" onClick={() => setMostrarEntradaExtra(true)}>
-              <Plus className="h-4 w-4" />
-              Lançar condicional que ficou de fora
-            </Botao>
-          )}
-        </div>
-      )}
-
-      {falhas.length > 0 && (
-        <div className="cartao border-vermelho/30 p-4">
-          <div className="flex items-start justify-between gap-4">
-            <p className="text-sm font-medium text-vermelho-700">{falhas.length} número(s) não foram lançados:</p>
-            <button
-              type="button"
-              onClick={() => setFalhas([])}
-              className="text-zinc-400 hover:text-zinc-700"
-              aria-label="Fechar"
-            >
-              <X className="h-4 w-4" />
-            </button>
           </div>
-          <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
-            {falhas.map((f, i) => (
-              <li key={`${f.numero}-${i}`}>
-                <span className="numero font-medium">{f.numero || "(vazio)"}</span>{" "}
-                <span className="text-zinc-600">— {f.erro}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {modoConferencia && (
-        <div className="rounded-lg border border-marinho/15 bg-white px-4 py-3 text-sm text-zinc-600">
-          Pegue as condicionais na ordem da pilha e aperte <Tecla>Espaço</Tecla> para cada uma que estiver na sua mão:
-          ela fica grifada e o sistema pula para a próxima. Errou? <Tecla>Backspace</Tecla> desfaz a última.
-        </div>
-      )}
-
-      {/* Tabela */}
-      <TabelaCondicionais
-        itens={ativos}
-        temporarios={temporarios}
-        modoConferencia={modoConferencia}
-        cursor={cursorSeguro}
-        editavel={editavel}
-        situacaoEditavel={situacaoEditavel}
-        ocultarStatus={!ehBalcao && lista.status === "rascunho"}
-        destaque={destaque}
-        aoFocarLinha={irPara}
-        aoAlternarConferencia={alternarConferencia}
-        aoEditar={(c) => void editar(c)}
-        aoRemover={(c) => void remover(c)}
-        aoSituacao={(c, s) => void situacao(c, s)}
-        aoHistorico={(c) =>
-          setHistorico({ titulo: `Condicional ${c.numero}`, carregar: () => historicoDeRegistros([c.id]) })
-        }
-        registrarLinha={registrarLinha}
-      />
-
-      {removidas.length > 0 && (
-        <div className="space-y-2">
-          <Botao variante="fantasma" tamanho="sm" onClick={() => setMostrarRemovidas((v) => !v)}>
-            {mostrarRemovidas ? "Esconder" : "Mostrar"} removidas ({removidas.length})
-          </Botao>
-          {mostrarRemovidas && (
-            <TabelaRemovidas
-              itens={removidas}
-              aoHistorico={(c) =>
-                setHistorico({ titulo: `Condicional ${c.numero}`, carregar: () => historicoDeRegistros([c.id]) })
+          <div className="flex flex-wrap gap-2">
+            <Botao
+              variante="secundario"
+              onClick={() =>
+                setHistorico({
+                  titulo: `${ROTULO_MODALIDADE[lista.modalidade]} · ${formatarData(lista.data)}`,
+                  carregar: () => historicoDaLista(lista.id),
+                })
               }
+            >
+              <History className="h-4 w-4" />
+              Histórico da lista
+            </Botao>
+            <Botao variante="secundario" onClick={() => void imprimir()} disabled={ativos.length === 0}>
+              <Printer className="h-4 w-4" />
+              Imprimir
+            </Botao>
+            {ehBalcao && podeAssinar(perfil.papel, lista) && (
+              <Botao
+                onClick={() => void assinar()}
+                carregando={ocupado}
+                disabled={contagem.total === 0 || temporarios.length > 0}
+              >
+                <Signature className="h-4 w-4" />
+                Fechar e assinar lista
+              </Botao>
+            )}
+            {podeEnviar(perfil.papel, lista) && (
+              <Botao
+                onClick={() => void enviar()}
+                carregando={ocupado}
+                disabled={contagem.total === 0 || temporarios.length > 0}
+              >
+                <Send className="h-4 w-4" />
+                Enviar para conferência
+              </Botao>
+            )}
+            {podeReabrir(perfil.papel, lista) && (
+              <Botao variante="secundario" onClick={() => void reabrir()} carregando={ocupado}>
+                <RotateCcw className="h-4 w-4" />
+                {ehBalcao ? "Reabrir lista" : "Reabrir conferência"}
+              </Botao>
+            )}
+          </div>
+        </div>
+
+        {/* Contadores */}
+        <div className="flex flex-wrap gap-3">
+          <Contador rotulo="Condicionais" valor={contagem.total} />
+          {!ehBalcao && lista.status !== "rascunho" && (
+            <Contador
+              rotulo="Conferidas"
+              valor={contagem.conferidas}
+              destaque={contagem.conferidas === contagem.total && contagem.total > 0 ? "verde" : undefined}
             />
           )}
+          {contagem.naoRecebidas > 0 && (
+            <Contador rotulo="Não recebidas" valor={contagem.naoRecebidas} destaque="vermelho" />
+          )}
+          {(ehBalcao || lista.status !== "rascunho") && (
+            <>
+              <Contador rotulo="Em aberto" valor={contagem.emAberto} />
+              <Contador rotulo="Pagas" valor={contagem.pagas} />
+              <Contador rotulo="Canceladas" valor={contagem.canceladas} />
+            </>
+          )}
         </div>
-      )}
 
-      {/* Barra fixa da conferência */}
-      {modoConferencia && ativos.length > 0 && (
-        <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(20,29,62,0.06)] backdrop-blur">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs uppercase tracking-wider text-zinc-500">Linha {cursorSeguro + 1}</span>
-              <span
-                className={`numero text-2xl font-semibold ${atual?.conferencia === "conferida" ? "grifo" : ""} text-marinho`}
-              >
-                {atual?.numero}
-              </span>
-            </div>
-            <div className="min-w-[10rem] flex-1">
-              <div className="flex justify-between text-xs text-zinc-500">
-                <span>
-                  {contagem.conferidas} de {contagem.total} conferidas
-                </span>
-                <span>{progresso}%</span>
-              </div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200">
-                <div className="h-full rounded-full bg-grifo transition-all" style={{ width: `${progresso}%` }} />
-              </div>
-            </div>
-            <div className="hidden items-center gap-1.5 text-xs text-zinc-500 lg:flex">
-              <Tecla>Espaço</Tecla> conferir · <Tecla>⌫</Tecla> desfazer · <Tecla>↑</Tecla>
-              <Tecla>↓</Tecla> navegar
-            </div>
-            <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-              {salvando > 0 ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> salvando…
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> tudo salvo
-                </>
+        {/* Avisos por situação da lista */}
+        {lista.status === "rascunho" && !editavel && (
+          <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-600">
+            {ehBalcao
+              ? "O financeiro está lançando esta lista do balcão. Cada condicional lançada já está conferida."
+              : "A expedição ainda está preenchendo esta lista. Ela fica disponível para conferência quando for enviada."}
+          </div>
+        )}
+
+        {ehBalcao && lista.status === "rascunho" && editavel && (
+          <div className="rounded-lg border border-marinho/15 bg-white px-4 py-3 text-sm text-zinc-600">
+            No balcão, cada número que você lança <b>já fica conferido por você</b>. Ao terminar o dia, clique em{" "}
+            <b>Fechar e assinar lista</b>.
+          </div>
+        )}
+
+        {lista.status === "enviada" && perfil.papel === "expedicao" && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {editavel
+              ? "Lista enviada. Você ainda pode corrigir (com motivo) até o financeiro começar a conferência."
+              : "A conferência já começou. Para corrigir algo, fale com o financeiro."}
+          </div>
+        )}
+
+        {lista.status === "conferida" && (
+          <div className="cartao flex flex-wrap items-center gap-4 border-emerald-200 bg-emerald-50/40 px-5 py-4">
+            <Signature className="h-8 w-8 text-emerald-700" />
+            <div className="flex-1">
+              <p className="text-sm text-zinc-600">
+                {ehBalcao ? "Fechada e assinada por" : "Conferido e assinado por"}
+              </p>
+              <p className="text-lg font-semibold text-marinho">
+                {lista.conferida_por_nome}{" "}
+                <span className="font-normal text-zinc-500">· {formatarDataHora(lista.conferida_em)}</span>
+              </p>
+              {lista.observacao_conferencia && (
+                <p className="mt-1 text-sm italic text-zinc-600">“{lista.observacao_conferencia}”</p>
               )}
-            </span>
-            <Botao onClick={() => void assinar()} carregando={ocupado} disabled={salvando > 0}>
-              <Signature className="h-4 w-4" />
-              Assinar conferência
+            </div>
+          </div>
+        )}
+
+        {/* Lançamento */}
+        {editavel && lista.status === "rascunho" && (
+          <div className="sticky top-0 z-20 -mx-4 bg-papel/95 px-4 py-3 backdrop-blur">
+            <EntradaNumeros aoAdicionar={(n) => void lancar(n)} existentes={existentes} />
+          </div>
+        )}
+
+        {editavel && lista.status === "enviada" && (
+          <div>
+            {mostrarEntradaExtra ? (
+              <div className="cartao space-y-2 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-marinho">Lançar condicional que ficou de fora</p>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarEntradaExtra(false)}
+                    className="text-zinc-400 hover:text-zinc-700"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <EntradaNumeros
+                  aoAdicionar={(n) => void lancar(n)}
+                  existentes={existentes}
+                  dica="A lista já foi enviada: o sistema vai pedir o motivo."
+                />
+              </div>
+            ) : (
+              <Botao variante="fantasma" tamanho="sm" onClick={() => setMostrarEntradaExtra(true)}>
+                <Plus className="h-4 w-4" />
+                Lançar condicional que ficou de fora
+              </Botao>
+            )}
+          </div>
+        )}
+
+        {falhas.length > 0 && (
+          <div className="cartao border-vermelho/30 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-sm font-medium text-vermelho-700">{falhas.length} número(s) não foram lançados:</p>
+              <button
+                type="button"
+                onClick={() => setFalhas([])}
+                className="text-zinc-400 hover:text-zinc-700"
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+              {falhas.map((f, i) => (
+                <li key={`${f.numero}-${i}`}>
+                  <span className="numero font-medium">{f.numero || "(vazio)"}</span>{" "}
+                  <span className="text-zinc-600">— {f.erro}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {modoConferencia && (
+          <div className="rounded-lg border border-marinho/15 bg-white px-4 py-3 text-sm text-zinc-600">
+            Pegue as condicionais na ordem da pilha e aperte <Tecla>Espaço</Tecla> para cada uma que estiver na sua mão:
+            ela fica grifada e o sistema pula para a próxima. Errou? <Tecla>Backspace</Tecla> desfaz a última.
+          </div>
+        )}
+
+        {/* Tabela */}
+        <TabelaCondicionais
+          itens={ativos}
+          temporarios={temporarios}
+          modoConferencia={modoConferencia}
+          cursor={cursorSeguro}
+          editavel={editavel}
+          situacaoEditavel={situacaoEditavel}
+          ocultarStatus={!ehBalcao && lista.status === "rascunho"}
+          destaque={destaque}
+          aoFocarLinha={irPara}
+          aoAlternarConferencia={alternarConferencia}
+          aoEditar={(c) => void editar(c)}
+          aoRemover={(c) => void remover(c)}
+          aoSituacao={(c, s) => void situacao(c, s)}
+          aoHistorico={(c) =>
+            setHistorico({ titulo: `Condicional ${c.numero}`, carregar: () => historicoDeRegistros([c.id]) })
+          }
+          registrarLinha={registrarLinha}
+        />
+
+        {removidas.length > 0 && (
+          <div className="space-y-2">
+            <Botao variante="fantasma" tamanho="sm" onClick={() => setMostrarRemovidas((v) => !v)}>
+              {mostrarRemovidas ? "Esconder" : "Mostrar"} removidas ({removidas.length})
+            </Botao>
+            {mostrarRemovidas && (
+              <TabelaRemovidas
+                itens={removidas}
+                aoHistorico={(c) =>
+                  setHistorico({ titulo: `Condicional ${c.numero}`, carregar: () => historicoDeRegistros([c.id]) })
+                }
+              />
+            )}
+          </div>
+        )}
+
+        {/* Barra fixa da conferência */}
+        {modoConferencia && ativos.length > 0 && (
+          <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(20,29,62,0.06)] backdrop-blur">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs uppercase tracking-wider text-zinc-500">Linha {cursorSeguro + 1}</span>
+                <span
+                  className={`numero text-2xl font-semibold ${atual?.conferencia === "conferida" ? "grifo" : ""} text-marinho`}
+                >
+                  {atual?.numero}
+                </span>
+              </div>
+              <div className="min-w-[10rem] flex-1">
+                <div className="flex justify-between text-xs text-zinc-500">
+                  <span>
+                    {contagem.conferidas} de {contagem.total} conferidas
+                  </span>
+                  <span>{progresso}%</span>
+                </div>
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-zinc-200">
+                  <div className="h-full rounded-full bg-grifo transition-all" style={{ width: `${progresso}%` }} />
+                </div>
+              </div>
+              <div className="hidden items-center gap-1.5 text-xs text-zinc-500 lg:flex">
+                <Tecla>Espaço</Tecla> conferir · <Tecla>⌫</Tecla> desfazer · <Tecla>↑</Tecla>
+                <Tecla>↓</Tecla> navegar
+              </div>
+              <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+                {salvando > 0 ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> salvando…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> tudo salvo
+                  </>
+                )}
+              </span>
+              <Botao onClick={() => void assinar()} carregando={ocupado} disabled={salvando > 0}>
+                <Signature className="h-4 w-4" />
+                Assinar conferência
+              </Botao>
+            </div>
+          </div>
+        )}
+
+        {perfil.papel === "admin" && (
+          <div className="flex justify-end border-t border-dashed border-zinc-300 pt-4">
+            <Botao
+              variante="fantasma"
+              tamanho="sm"
+              onClick={() => void resetar()}
+              carregando={ocupado}
+              className="text-vermelho-700 hover:bg-vermelho-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Resetar lista (dados de teste)
             </Botao>
           </div>
-        </div>
-      )}
+        )}
 
-      {historico && <PainelHistorico pedido={historico} aoFechar={fecharHistorico} />}
-    </div>
+        {historico && <PainelHistorico pedido={historico} aoFechar={fecharHistorico} />}
+      </div>
+      <FolhaImpressao lista={lista} itens={ativos} modelo={modeloImpressao} impressoPor={perfil.nome} />
+    </>
   );
 }

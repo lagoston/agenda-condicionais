@@ -140,6 +140,8 @@ export function descreverEvento(ev: EventoHistorico): string {
       return "criou o usuário";
     case "alterou_usuario":
       return "alterou o usuário";
+    case "resetou_lista":
+      return "resetou (apagou) uma lista de teste";
     case "redefiniu_senha":
       return "redefiniu a senha";
     default:
